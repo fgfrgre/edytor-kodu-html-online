@@ -1,0 +1,216 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Live Code Editor</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #1e1e1e;
+            color: #fff;
+        }
+
+        .container {
+            display: flex;
+            padding: 20px;
+            gap: 20px;
+            height: 100vh;
+        }
+
+        .editor-container {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        .preview-container {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .editor {
+            flex: 1;
+            padding: 10px;
+            background-color: #2d2d2d;
+            border: none;
+            border-radius: 5px;
+            color: #fff;
+            font-family: 'Courier New', Courier, monospace;
+            resize: none;
+        }
+
+        .preview {
+            flex: 1;
+            background-color: #fff;
+            border: none;
+            border-radius: 5px;
+        }
+
+        .label {
+            font-size: 14px;
+            font-weight: bold;
+            color: #fff;
+            padding: 5px;
+        }
+
+        button {
+            padding: 10px 20px;
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 14px;
+            transition: background-color 0.3s;
+        }
+
+        button:hover {
+            background-color: #45a049;
+        }
+
+        .tab-container {
+            display: flex;
+            gap: 5px;
+            margin-bottom: 10px;
+        }
+
+        .tab {
+            padding: 8px 16px;
+            background-color: #333;
+            border: none;
+            border-radius: 5px 5px 0 0;
+            color: #fff;
+            cursor: pointer;
+        }
+
+        .tab.active {
+            background-color: #2d2d2d;
+        }
+
+        .error {
+            color: #ff4444;
+            padding: 10px;
+            margin-top: 10px;
+            background-color: rgba(255, 68, 68, 0.1);
+            border-radius: 5px;
+            display: none;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="editor-container">
+            <div class="tab-container">
+                <button class="tab active" onclick="switchTab('html')">HTML</button>
+                <button class="tab" onclick="switchTab('css')">CSS</button>
+                <button class="tab" onclick="switchTab('js')">JavaScript</button>
+            </div>
+            <textarea id="htmlEditor" class="editor" placeholder="Wpisz kod HTML..."></textarea>
+            <textarea id="cssEditor" class="editor" style="display: none;" placeholder="Wpisz kod CSS..."></textarea>
+            <textarea id="jsEditor" class="editor" style="display: none;" placeholder="Wpisz kod JavaScript..."></textarea>
+            <div id="errorDisplay" class="error"></div>
+            <button onclick="runCode()">Uruchom kod</button>
+        </div>
+        <div class="preview-container">
+            <div class="label">Podgląd:</div>
+            <iframe id="preview" class="preview" sandbox="allow-scripts"></iframe>
+        </div>
+    </div>
+
+    <script>
+        (function() {
+            let currentTab = 'html';
+            const editors = {
+                html: document.getElementById('htmlEditor'),
+                css: document.getElementById('cssEditor'),
+                js: document.getElementById('jsEditor')
+            };
+            const errorDisplay = document.getElementById('errorDisplay');
+            const preview = document.getElementById('preview');
+
+            function showError(message) {
+                errorDisplay.textContent = message;
+                errorDisplay.style.display = 'block';
+                setTimeout(() => {
+                    errorDisplay.style.display = 'none';
+                }, 5000);
+            }
+
+            window.switchTab = function(tab) {
+                Object.values(editors).forEach(editor => editor.style.display = 'none');
+                editors[tab].style.display = 'block';
+                
+                document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+                document.querySelector(`.tab[onclick="switchTab('${tab}')"]`).classList.add('active');
+                
+                currentTab = tab;
+            };
+
+            function escapeScriptTags(code) {
+                return code.replace(/<\/script/gi, '<\\/script');
+            }
+
+            function createIframeContent(html, css, js) {
+                const cssContent = `<style type="text/css"><!--\n${css}\n--></style>`;
+                const jsContent = `<script type="text/javascript">\n${escapeScriptTags(js)}\n<\/script>`;
+
+                const doc = [
+                    '<!DOCTYPE html>',
+                    '<html>',
+                    '<head>',
+                    '<meta charset="UTF-8">',
+                    cssContent,
+                    '</head>',
+                    '<body>',
+                    html,
+                    jsContent,
+                    '</body>',
+                    '</html>'
+                ].join('\n');
+
+                return doc;
+            }
+
+            window.runCode = function() {
+                try {
+                    const html = editors.html.value;
+                    const css = editors.css.value;
+                    const js = editors.js.value;
+
+                    const content = createIframeContent(html, css, js);
+                    preview.src = 'data:text/html;charset=utf-8,' + encodeURIComponent(content);
+                    errorDisplay.style.display = 'none';
+                } catch (error) {
+                    showError(error.message);
+                }
+            };
+
+            // Opóźnione automatyczne uruchamianie kodu przy zmianie w edytorach
+            let debounceTimeout;
+            Object.values(editors).forEach(editor => {
+                editor.addEventListener('input', () => {
+                    clearTimeout(debounceTimeout);
+                    debounceTimeout = setTimeout(window.runCode, 1000);
+                });
+            });
+
+            // Przykładowy kod początkowy
+            editors.html.value = '<h1>Witaj w edytorze kodu!</h1>\n<p>Możesz tutaj testować swój kod HTML, CSS i JavaScript.</p>';
+            editors.css.value = 'h1 { color: blue; }\np { color: gray; }';
+            editors.js.value = 'console.log("Witaj w konsoli!");';
+
+            // Uruchom kod początkowy
+            window.runCode();
+        })();
+    </script>
+</body>
+</html>
